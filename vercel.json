@@ -1,6 +1,0 @@
-{
-  "rewrites": [
-    { "source": "/api/fetch", "destination": "/api/fetch.js" },
-    { "source": "/(.*)", "destination": "/public/index.html" }
-  ]
-}
