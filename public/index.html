@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ProChat AI</title>
+  <!-- Load Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+          },
+          colors: {
+            'primary': '#6366F1', // Indigo 500
+            'primary-dark': '#4F46E5', // Indigo 600
+            'chat-bg': '#0F172A', // Slate 900
+            'user-bubble': '#334155', // Slate 700
+            'ai-bubble': '#1E293B', // Slate 800
+            'highlight': '#F9A8D4', // Pink 300
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    /* Base styles for a full-screen, centered experience */
+    html,
+    body {
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+    }
+
+    /* Centered content with responsive padding */
+    #app {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 1rem;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      z-index: 10;
+    }
+
+    /* Background and Border Animations */
+    body {
+      background-color: #0F172A;
+    }
+
+    #app-container {
+      position: relative;
+      background: #1e293b;
+      border-radius: 1.5rem;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+      overflow: hidden;
+      border: 2px solid transparent;
+      /* Base border for animation */
+      animation: rotate-border 4s linear infinite;
+    }
+
+    /* Custom animation to make the border glow/move */
+    @keyframes rotate-border {
+      0% {
+        border-color: #6366F1;
+        box-shadow: 0 0 10px rgba(99, 102, 241, 0.5);
+      }
+
+      50% {
+        border-color: #F9A8D4;
+        box-shadow: 0 0 20px rgba(249, 168, 212, 0.7);
+      }
+
+      100% {
+        border-color: #6366F1;
+        box-shadow: 0 0 10px rgba(99, 102, 241, 0.5);
+      }
+    }
+
+    /* Chat window styling */
+    #chat-window {
+      padding-bottom: 2rem;
+      overflow-y: auto;
+      scrollbar-width: thin;
+      scrollbar-color: #334155 #1E293B;
+      height: 100%;
+    }
+
+    #chat-window::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    #chat-window::-webkit-scrollbar-track {
+      background: #1E293B;
+    }
+
+    #chat-window::-webkit-scrollbar-thumb {
+      background-color: #334155;
+      border-radius: 20px;
+    }
+
+    /* Typing indicator dots animation */
+    .typing-dot {
+      animation: bounce 1.4s infinite ease-in-out both;
+    }
+
+    .typing-dot:nth-child(2) {
+      animation-delay: 0.2s;
+    }
+
+    .typing-dot:nth-child(3) {
+      animation-delay: 0.4s;
+    }
+
+    @keyframes bounce {
+
+      0%,
+      80%,
+      100% {
+        transform: scale(0);
+      }
+
+      40% {
+        transform: scale(1.0);
+      }
+    }
+
+    /* Highlighting for keywords (using the pink color) */
+    .highlighted {
+      color: #F9A8D4;
+      font-weight: bold;
+      display: inline;
+      /* Important for inline flow */
+      animation: glow-pulse 1s ease-in-out infinite alternate;
+    }
+
+    @keyframes glow-pulse {
+      from {
+        text-shadow: 0 0 1px #F9A8D4;
+      }
+
+      to {
+        text-shadow: 0 0 8px #F9A8D4;
+      }
+    }
+  </style>
+</head>
+
+<body class="text-gray-100 font-sans h-full flex flex-col antialiased p-4 sm:p-8">
+
+  <!-- Main Application Container (Centered) -->
+  <div id="app" class="h-full w-full">
+    <div id="app-container" class="flex flex-col h-full w-full">
+
+      <!-- Header -->
+      <header class="p-4 border-b border-gray-700 bg-gray-900 shadow-lg flex justify-between items-center">
+        <h1 class="text-xl font-extrabold text-white tracking-wider">
+          ✨ ProChat AI
+        </h1>
+        <span class="text-xs text-primary-dark border border-primary-dark rounded-full px-2 py-0.5">Bot 2.5
+          Flash</span>
+      </header>
+
+      <!-- Chat Window (Message History) -->
+      <div id="chat-window" class="flex-grow p-4 space-y-4 overflow-y-auto">
+        <!-- Initial Greeting -->
+        <div class="flex justify-start" style="justify-content: center;">
+          <div class="bg-ai-bubble p-3 rounded-xl rounded-tl-none max-w-xs md:max-w-md shadow-lg">
+            <p class="text-sm" style="text-align: center;">👋 Heyy! Think of me as your friendly research partner!</p>
+            <p class="text-sm" style="text-align: center;">I can help with document analysis, summarizing long texts,
+              and giving you suggestions on projects. <br><br> Try uploading a file or speaking your query</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Input Area (Fixed at Bottom) -->
+      <div class="p-4 bg-gray-900 border-t border-gray-700">
+        <div class="flex items-center space-x-3 max-w-4xl mx-auto">
+
+          <!-- Mic Button -->
+          <button id="mic-button"
+            class="p-3 bg-gray-700 text-white rounded-full hover:bg-red-500 focus:outline-none focus:ring-2 focus:ring-red-500 transition duration-150"
+            aria-label="Start voice input">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+              class="lucide lucide-mic">
+              <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
+              <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+              <line x1="12" x2="12" y1="19" y2="22" />
+            </svg>
+          </button>
+
+          <input id="user-input" type="text" placeholder="Message or describe your file..." autocomplete="off"
+            class="flex-grow p-3 border border-gray-600 bg-gray-700 text-gray-100 rounded-full focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition duration-150 shadow-inner disabled:opacity-50">
+
+          <!-- File Input Label/Icon -->
+          <label for="file-input"
+            class="p-3 bg-gray-700 text-white rounded-full hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-primary transition duration-150 cursor-pointer"
+            aria-label="Attach document, image, or video">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+              class="lucide lucide-paperclip">
+              <path
+                d="m21.44 11.23-7.53 7.53a4 4 0 0 1-5.66-5.66l7.53-7.53a2 2 0 0 1 2.83 2.83L11.23 18.77a2 2 0 0 1-2.83-2.83l7.53-7.53" />
+            </svg>
+          </label>
+          <input id="file-input" type="file" accept="image/*,application/pdf" class="hidden">
+
+          <!-- Send Button -->
+          <button id="send-button" onclick="sendMessage()"
+            class="p-3 bg-primary text-white rounded-full hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-gray-900 transition duration-150 disabled:bg-gray-500 disabled:cursor-not-allowed shadow-xl"
+            aria-label="Send message">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+              class="lucide lucide-send-horizontal">
+              <path d="m3 3 3 9-3 9 19-9Z" />
+              <path d="M6 12h16" />
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const chatWindow = document.getElementById('chat-window');
+    const userInput = document.getElementById('user-input');
+    const sendButton = document.getElementById('send-button');
+    const micButton = document.getElementById('mic-button');
+    const fileInput = document.getElementById('file-input');
+
+    const MODEL_NAME = 'gemini-2.5-flash-preview-05-20';
+    const apiKey = ""; // API key is provided by the environment
+
+    // Global chat history for conversational context (Text-only parts for now)
+    let chatHistory = [];
+    let isProcessing = false;
+    let selectedFile = null;
+
+    // --- Utility Functions ---
+
+    function scrollToBottom() {
+      chatWindow.scrollTop = chatWindow.scrollHeight;
+    }
+
+    /**
+     * Converts plain text with **bold** markers into HTML with the custom highlighted class.
+     */
+    function formatAndHighlightText(text) {
+      // 1. Sanitize the base text to prevent XSS
+      const div = document.createElement('div');
+      div.textContent = text;
+      const sanitizedText = div.innerHTML;
+
+      // 2. Convert newlines to <br> for pre-wrap effect
+      const textWithBreaks = sanitizedText.replace(/\n/g, '<br>');
+
+      // 3. Highlight text enclosed in **...**
+      // The regex matches '**' followed by content (not including **), followed by another '**'.
+      // The content is replaced by a span with the 'highlighted' class.
+      const highlightedText = textWithBreaks.replace(/\*\*([^*]+?)\*\*/g, '<span class="highlighted">$1</span>');
+
+      return highlightedText;
+    }
+
+    /**
+     * Adds a message bubble to the chat window.
+     */
+    function addMessage(rawText, role, id = '') {
+      const isUser = role === 'user';
+      const bubbleClasses = isUser ? 'bg-user-bubble rounded-br-none ml-auto' : 'bg-ai-bubble rounded-tl-none';
+      const alignmentClasses = isUser ? 'justify-end' : 'justify-start';
+
+      const messageDiv = document.createElement('div');
+      messageDiv.className = `flex ${alignmentClasses}`;
+      if (id) messageDiv.id = id;
+
+      let speakerIcon = '';
+      // Only add speaker icon for model messages
+      if (!isUser) {
+        // We use a data attribute to store the raw text for TTS
+        speakerIcon = `
+                    <button class="speaker-icon ml-2 text-gray-400 hover:text-primary transition duration-150" onclick="speakText(this)" data-text="${rawText.replace(/"/g, '&quot;')}" aria-label="Listen to message">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-volume-2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
+                    </button>
+                `;
+      }
+
+      const content = formatAndHighlightText(rawText);
+
+      messageDiv.innerHTML = `
+                <div class="p-3 rounded-xl max-w-xs md:max-w-md shadow-lg flex items-start ${bubbleClasses} text-sm">
+                    <p class="whitespace-pre-wrap">${content}</p>
+                    ${speakerIcon}
+                </div>
+            `;
+      chatWindow.appendChild(messageDiv);
+      scrollToBottom();
+      return messageDiv;
+    }
+
+    function showTypingIndicator() {
+      const indicatorDiv = document.createElement('div');
+      indicatorDiv.id = 'typing-indicator';
+      indicatorDiv.className = 'flex justify-start';
+      indicatorDiv.innerHTML = `
+                <div class="bg-ai-bubble p-3 rounded-xl rounded-tl-none shadow-lg flex space-x-1">
+                    <div class="typing-dot h-2 w-2 bg-gray-300 rounded-full"></div>
+                    <div class="typing-dot h-2 w-2 bg-gray-300 rounded-full"></div>
+                    <div class="typing-dot h-2 w-2 bg-gray-300 rounded-full"></div>
+                </div>
+            `;
+      chatWindow.appendChild(indicatorDiv);
+      scrollToBottom();
+      return indicatorDiv;
+    }
+
+    /**
+     * Converts the file to a GenerativePart object for the API payload.
+     * @param {File} file - The file object from the input.
+     * @returns {Promise<Object>} The GenerativePart object.
+     */
+    function fileToGenerativePart(file) {
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const base64Data = reader.result.split(',')[1];
+          resolve({
+            inlineData: {
+              data: base64Data,
+              mimeType: file.type,
+            },
+          });
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+
+    // --- Speech Functions ---
+
+    function speakText(buttonElement) {
+      const text = buttonElement.getAttribute('data-text');
+      if ('speechSynthesis' in window) {
+        // Cancel any ongoing speech before starting a new one
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(text);
+        // Use a neutral/standard voice if available
+        utterance.voice = speechSynthesis.getVoices().find(v => v.lang.includes('en') && v.name.includes('Google'));
+        window.speechSynthesis.speak(utterance);
+      } else {
+        // Use a custom modal instead of alert()
+        alert("Text-to-speech is not supported in your browser.");
+      }
+    }
+
+    // --- Main Logic ---
+
+    async function sendMessage() {
+      const message = userInput.value.trim();
+      const file = selectedFile;
+
+      if ((!message && !file) || isProcessing) return;
+
+      isProcessing = true;
+      userInput.value = '';
+      userInput.disabled = true;
+      sendButton.disabled = true;
+      micButton.disabled = true;
+      fileInput.disabled = true;
+
+      // 1. Display User Message
+      const userDisplayMessage = file ? `[File: ${file.name}] ${message}` : message;
+      addMessage(userDisplayMessage, 'user');
+
+      // 2. Construct Chat History and Payload
+      let userParts = [{ text: message }];
+      let systemInstruction = "You are a concise, helpful, and friendly AI. For every response, analyze the text and wrap the most **important keywords or short phrases** in double asterisks, like **this example**, so the user can easily see the key points. Be informative and supportive. If a file is attached, describe it briefly and then answer the user's question about it. If the user asks for a summary or key points, provide them, ensuring **all key concepts** are bolded.";
+
+      let filePart = null;
+      if (file) {
+        try {
+          filePart = await fileToGenerativePart(file);
+          userParts.push(filePart);
+          // Add a brief description of the file to the prompt to help the model
+          userParts.push({ text: `Analyze the attached file (MIME type: ${file.type}) in the context of the user's request.` });
+        } catch (e) {
+          console.error("File processing failed:", e);
+          // Handle failure gracefully without preventing chat
+        }
+      }
+
+      // Add new user message (and file part, if applicable) to history for context
+      chatHistory.push({ role: "user", parts: userParts });
+
+      // 3. Show Typing Indicator
+      const typingIndicator = showTypingIndicator();
+
+      // 4. API Call Setup (using streaming)
+      const apiUrl = '/api/fetch';
+
+      const payload = {
+        contents: chatHistory,
+        systemInstruction: {
+          parts: [{ text: systemInstruction }]
+        }
+      };
+
+      try {
+        const response = await fetchWithRetry(apiUrl, payload);
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let fullResponse = '';
+        let lastMessageDiv = null;
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          const chunk = decoder.decode(value, { stream: true });
+          const result = JSON.parse(chunk);
+
+          const modelText = result.candidates?.[0]?.content?.parts?.[0]?.text;
+
+          if (modelText) {
+            fullResponse += modelText;
+
+            if (!lastMessageDiv) {
+              typingIndicator.remove();
+              // Create the message container for streaming
+              lastMessageDiv = addMessage('', 'model', 'stream-response');
+            }
+
+            // Update the message content with formatting and highlighting
+            lastMessageDiv.querySelector('p').innerHTML = formatAndHighlightText(fullResponse);
+
+            scrollToBottom();
+          }
+        }
+
+        // 5. Finalize History and cleanup
+        if (fullResponse) {
+          // Replace the last history entry (the streaming placeholder) with the final full response
+          chatHistory.push({ role: "model", parts: [{ text: fullResponse }] });
+        } else {
+          // Handle case where stream ends without content (e.g., error)
+          typingIndicator.remove();
+          addMessage("Sorry, I couldn't generate a response. The stream was empty.", 'model');
+          chatHistory.pop(); // Remove the user message from history if the model failed to respond
+        }
+      } catch (error) {
+        console.error("API Error:", error);
+        typingIndicator.remove();
+        addMessage("A connection error occurred. Check the console for details.", 'model');
+        chatHistory.pop(); // Remove user message from history on error
+      } finally {
+        isProcessing = false;
+        selectedFile = null;
+        // Clear the state of the file input UI
+        fileInput.value = '';
+        fileInput.dispatchEvent(new Event('change'));
+
+        userInput.disabled = false;
+        sendButton.disabled = false;
+        micButton.disabled = false;
+        fileInput.disabled = false;
+        userInput.focus();
+      }
+    }
+
+    /**
+     * Handles the API call with exponential backoff for streaming.
+     */
+    async function fetchWithRetry(apiUrl, payload, maxRetries = 3) {
+      let delay = 1000;
+      for (let i = 0; i < maxRetries; i++) {
+        try {
+          const response = await fetch(apiUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+
+          if (response.ok) {
+            return response;
+          } else if (response.status === 429) {
+            await new Promise(resolve => setTimeout(resolve, delay));
+            delay *= 2;
+          } else {
+            throw new Error(`API returned status ${response.status}: ${response.statusText}`);
+          }
+        } catch (error) {
+          if (i === maxRetries - 1) {
+            throw new Error(`Failed to fetch after ${maxRetries} attempts: ${error.message}`);
+          }
+          await new Promise(resolve => setTimeout(resolve, delay));
+          delay *= 2;
+        }
+      }
+    }
+
+    // --- Event Listeners ---
+
+    // File Input Handler
+    fileInput.addEventListener('change', () => {
+      if (fileInput.files.length > 0) {
+        selectedFile = fileInput.files[0];
+        userInput.placeholder = `File: ${selectedFile.name} | Add message or press send`;
+      } else {
+        selectedFile = null;
+        userInput.placeholder = "Message or describe your file...";
+      }
+    });
+
+    // Enter Key to Send
+    userInput.addEventListener('keypress', function (e) {
+      if (e.key === 'Enter' && !isProcessing) {
+        sendMessage();
+      }
+    });
+
+    // Microphone Button Handler
+    micButton.addEventListener('click', () => {
+      if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+        // Custom modal instead of alert()
+        alert("Speech recognition is not supported in your browser. Please use Chrome or Firefox.");
+        return;
+      }
+
+      if (isProcessing) return;
+
+      const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+      recognition.continuous = false;
+      recognition.interimResults = false;
+      recognition.lang = 'en-US';
+
+      recognition.onstart = () => {
+        micButton.classList.add('animate-pulse', 'bg-red-500', 'hover:bg-red-600');
+        userInput.placeholder = "Listening... Speak now.";
+      };
+
+      recognition.onresult = (event) => {
+        const transcript = event.results[0][0].transcript;
+        userInput.value = transcript;
+        recognition.stop();
+      };
+
+      recognition.onend = () => {
+        micButton.classList.remove('animate-pulse', 'bg-red-500', 'hover:bg-red-600');
+        userInput.placeholder = "Message or describe your file...";
+        // If a recognized voice input exists, send the message automatically
+        if (userInput.value) {
+          sendMessage();
+        }
+      };
+
+      recognition.onerror = (event) => {
+        console.error('Speech recognition error:', event.error);
+        micButton.classList.remove('animate-pulse', 'bg-red-500', 'hover:bg-red-600');
+        userInput.placeholder = "Message or describe your file...";
+        alert(`Speech recognition error: ${event.error}`);
+      };
+
+      recognition.start();
+    });
+
+
+    // Initialize focus on load
+    window.onload = () => {
+      userInput.focus();
+      // Ensure TTS voices are loaded before any speech attempt
+      if ('speechSynthesis' in window) {
+        speechSynthesis.getVoices();
+      }
+      scrollToBottom();
+    };
+
+  </script>
+</body>
+
+</html>
